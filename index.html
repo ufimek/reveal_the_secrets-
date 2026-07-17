@@ -426,9 +426,10 @@
     }
 
     function showSection(hideEl, showEl, onShown) {
-      hideEl.classList.add('exiting');
-      hideEl.addEventListener('transitionend', function onExit(e) {
-        if (e.propertyName !== 'opacity') return;
+      let finished = false;
+      function finish() {
+        if (finished) return;
+        finished = true;
         hideEl.removeEventListener('transitionend', onExit);
         hideEl.classList.add('hidden');
         hideEl.classList.remove('exiting');
@@ -437,7 +438,17 @@
         showEl.offsetHeight;
         showEl.style.animation = '';
         if (onShown) onShown();
-      });
+      }
+      function onExit(e) {
+        if (e.propertyName !== 'opacity') return;
+        finish();
+      }
+      hideEl.classList.add('exiting');
+      hideEl.addEventListener('transitionend', onExit);
+      // safety net: if the transitionend event never fires for any reason
+      // (backgrounded tab, reduced-motion settings, etc.), don't let the UI
+      // stay frozen forever — force the transition to complete.
+      setTimeout(finish, 600);
     }
 
     let loadingTimers = [];
@@ -481,7 +492,14 @@
       loadingTimers.push(setTimeout(advance, PHRASE_DURATIONS[0]));
     }
 
+    function isTransitioning() {
+      return formSection.classList.contains('exiting') ||
+             loadingSection.classList.contains('exiting') ||
+             cardsSection.classList.contains('exiting');
+    }
+
     function handleSubmit() {
+      if (isTransitioning()) return;
       const input = document.getElementById('oracle-input');
       if (!input.value.trim()) return;
       problemText.textContent = input.value.trim();
@@ -490,6 +508,7 @@
     }
 
     function showForm() {
+      if (isTransitioning()) return;
       clearLoadingTimers();
       showSection(cardsSection, formSection, () => {
         document.getElementById('oracle-input').value = '';
@@ -500,7 +519,7 @@
     document.getElementById('oracle-submit').addEventListener('click', handleSubmit);
     document.getElementById('back-btn').addEventListener('click', showForm);
     document.getElementById('oracle-input').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' & !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
     });
 
     function sendHeight() {
@@ -509,5 +528,7 @@
     }
     window.addEventListener('load', sendHeight);
   </script>
+</body>
+</html>
 </body>
 </html>
